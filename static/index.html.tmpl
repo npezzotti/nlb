@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>NLB Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>Load Balancer</h1>
+    <p class="subtitle">Backend Health Monitoring Dashboard</p>
+    <div class="stats">
+      <div class="stat-card">
+        <span class="stat-number">{{ len . }}</span>
+        <span class="stat-label">Online Backends</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{{ len . }}</span>
+        <span class="stat-label">Offline Backends</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">75%</span>
+        <span class="stat-label">Uptime</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Backend</th>
+          <th>Status</th>
+          <th>Load</th>
+          <th>Response Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range . }}
+          <tr>
+            <td class="server-name">{{ .URL }}</td>
+            <td><span class="status {{ if .Healthy }}up{{ else }}down{{ end }}"><span class="status-indicator"></span>{{ if .Healthy }}UP{{ else }}DOWN{{ end }}</span></td>
+            <td><span class="load">73%</span></td>
+            <td>45ms</td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+
+    <p class="last-updated">Last updated: {{ now.Format "January 02, 2006 at 3:04:05 PM MST" }}</p>
+  </div>
+</body>
+
+</html>
