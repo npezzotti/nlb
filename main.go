@@ -33,7 +33,7 @@ func run(args []string) error {
 	}
 
 	if len(args) < 1 {
-		return fmt.Errorf("please provide at least one backend server url as an argument")
+		return fmt.Errorf("please provide path to config file as first argument")
 	}
 
 	pool.HealthCheck()
