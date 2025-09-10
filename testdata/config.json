@@ -1,0 +1,12 @@
+{
+  "addr": ":9090",
+  "protocol": "tcp",
+  "backends": [
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001"
+
+  ],
+  "sticky_sessions": true,
+  "tls_cert_path": "test_cert.pem",
+  "tls_key_path": "test_key.pem"
+}
