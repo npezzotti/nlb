@@ -154,8 +154,8 @@ func Test_proxy_tls(t *testing.T) {
 	pool, err := NewServerPool(log.New(io.Discard, "", 0), &Config{
 		Addr:        "localhost:9091",
 		Backends:    []string{"http://localhost:8080"},
-		TLSCertPath: "test_cert.pem",
-		TLSKeyPath:  "test_key.pem",
+		TLSCertPath: "testdata/test_cert.pem",
+		TLSKeyPath:  "testdata/test_key.pem",
 	})
 	if err != nil {
 		t.Fatalf("failed to create server pool: %v", err)
