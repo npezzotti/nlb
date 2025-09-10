@@ -146,7 +146,9 @@ func Test_proxy_tls(t *testing.T) {
 		}
 		defer conn.Close()
 
-		conn.Write([]byte("Hello from backend!\n"))
+		if _, err := conn.Write([]byte("Hello from backend!\n")); err != nil {
+			t.Errorf("error writing to connection: %v", err)
+		}
 	}()
 
 	time.Sleep(100 * time.Millisecond) // Give backend time to start
