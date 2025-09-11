@@ -20,16 +20,25 @@ func run(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("please provide the path to the config file as the first argument")
 	}
-
+	var err error
 	config, err := loadConfig(args[0])
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
 	l := log.New(os.Stdout, "nlb: ", log.LstdFlags)
-	pool, err := NewServerPool(l, config)
-	if err != nil {
-		return fmt.Errorf("failed to create server pool: %v", err)
+	
+	var pool ServerPool
+	switch config.Protocol {
+	case "tcp":
+		pool, err = NewTCPServerPool(l, config)
+		if err != nil {
+			return fmt.Errorf("failed to create server pool: %v", err)
+		}
+	case "udp":
+		pool = NewUDPServerPool(l, config)
+	default:
+		return fmt.Errorf("unsupported protocol: %s", config.Protocol)
 	}
 
 	if len(args) < 1 {

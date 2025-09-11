@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func TestBackendIsAlive(t *testing.T) {
+func TestIsHealthy(t *testing.T) {
 	b := &Backend{}
 	b.SetHealthy(true)
 	if !b.Healthy() {
@@ -14,7 +14,7 @@ func TestBackendIsAlive(t *testing.T) {
 	}
 }
 
-func TestBackendSetAlive(t *testing.T) {
+func TestSetHealthy(t *testing.T) {
 	b := &Backend{}
 	b.SetHealthy(true)
 	if !b.isHealthy {

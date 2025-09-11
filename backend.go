@@ -7,10 +7,9 @@ import (
 
 // Backend represents a backend server with its URL and status.
 type Backend struct {
-	URL          *url.URL
-	mux          sync.Mutex
-	ReverseProxy bool // Not used in this simple TCP example, but common in HTTP LBs
-	isHealthy    bool
+	URL       *url.URL
+	mux       sync.Mutex
+	isHealthy bool
 }
 
 // Healthy checks the status of the backend.
