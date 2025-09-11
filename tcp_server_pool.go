@@ -14,9 +14,10 @@ import (
 // TCPServerPool holds the collection of backends.
 type TCPServerPool struct {
 	BaseServerPool
-	listener net.Listener
-	wg       sync.WaitGroup
-	shutdown chan struct{}
+	listener            net.Listener
+	wg                  sync.WaitGroup
+	shutdown            chan struct{}
+	healthcheckInterval time.Duration
 }
 
 // NewTCPServerPool creates a new ServerPool with the given logger.
@@ -46,6 +47,7 @@ func NewTCPServerPool(l *log.Logger, config *Config) (*TCPServerPool, error) {
 			stickySessions: config.StickySessions,
 			log:            l,
 		},
+		healthcheckInterval: 10 * time.Second,
 	}
 
 	// Add backends from config
@@ -57,55 +59,55 @@ func NewTCPServerPool(l *log.Logger, config *Config) (*TCPServerPool, error) {
 }
 
 // Start begins accepting connections and handling them.
-func (s *TCPServerPool) Start() error {
-	s.wg.Add(1)
-	go s.acceptLoop()
+func (p *TCPServerPool) Start() error {
+	p.wg.Add(1)
+	go p.acceptLoop()
 	return nil
 }
 
 // acceptLoop accepts incoming connections and handles them.
-func (s *TCPServerPool) acceptLoop() {
-	defer s.wg.Done()
+func (p *TCPServerPool) acceptLoop() {
+	defer p.wg.Done()
 
 	for {
 		select {
-		case <-s.shutdown:
+		case <-p.shutdown:
 			return
 		default:
-			conn, err := s.listener.Accept()
+			conn, err := p.listener.Accept()
 			if err != nil {
 				select {
-				case <-s.shutdown:
+				case <-p.shutdown:
 					return // Shutdown signal received
 				default:
-					s.log.Printf("error accepting connection: %v\n", err)
+					p.log.Printf("error accepting connection: %v\n", err)
 					continue
 				}
 			}
-			go proxy(conn, s, s.log)
+			go proxy(conn, p, p.log)
 		}
 	}
 }
 
 // Shutdown gracefully shuts down the server pool.
-func (s *TCPServerPool) Shutdown(ctx context.Context) error {
+func (p *TCPServerPool) Shutdown(ctx context.Context) error {
 	start := time.Now()
 
 	select {
-	case <-s.shutdown:
+	case <-p.shutdown:
 		// Already closed
 		return nil
 	default:
-		close(s.shutdown)
+		close(p.shutdown)
 	}
 
-	if err := s.listener.Close(); err != nil {
-		s.log.Printf("error closing listener: %v\n", err)
+	if err := p.listener.Close(); err != nil {
+		p.log.Printf("error closing listener: %v\n", err)
 	}
 
 	done := make(chan struct{})
 	go func() {
-		s.wg.Wait()
+		p.wg.Wait()
 		close(done)
 	}()
 
@@ -117,25 +119,25 @@ func (s *TCPServerPool) Shutdown(ctx context.Context) error {
 	}
 
 	elapsed := time.Since(start)
-	s.log.Printf("server pool shutdown completed in %s", elapsed)
+	p.log.Printf("server pool shutdown completed in %s", elapsed)
 	return nil
 }
 
 // Next returns the next available backend using round-robin.
-func (s *TCPServerPool) Next(conn net.Addr) *Backend {
-	s.backendsMutex.Lock()
-	defer s.backendsMutex.Unlock()
+func (p *TCPServerPool) Next(conn net.Addr) *Backend {
+	p.backendsMutex.Lock()
+	defer p.backendsMutex.Unlock()
 
-	if s.stickySessions {
+	if p.stickySessions {
 		ip := getIpFromAddr(conn)
 		hash := hashIp(ip)
-		idx := hash % len(s.backends)
-		if s.backends[idx].Healthy() {
-			return s.backends[idx]
+		idx := hash % len(p.backends)
+		if p.backends[idx].Healthy() {
+			return p.backends[idx]
 		}
 
 		// If the hashed backend is down, find the next healthy one
-		backend := s.findNextHealthyBackend(idx)
+		backend := p.findNextHealthyBackend(idx)
 		if backend != nil {
 			return backend
 		}
@@ -143,30 +145,30 @@ func (s *TCPServerPool) Next(conn net.Addr) *Backend {
 		return nil
 	}
 
-	for i := 0; i < len(s.backends); i++ {
-		s.current = (s.current + 1) % uint64(len(s.backends))
-		if s.backends[s.current].Healthy() {
-			return s.backends[s.current]
+	for i := 0; i < len(p.backends); i++ {
+		p.current = (p.current + 1) % uint64(len(p.backends))
+		if p.backends[p.current].Healthy() {
+			return p.backends[p.current]
 		}
 	}
 	return nil
 }
 
 // HealthCheck pings a backend to see if it's alive.
-func (s *TCPServerPool) HealthCheck() {
-	for _, b := range s.backends {
+func (p *TCPServerPool) HealthCheck() {
+	for _, b := range p.backends {
 		go func(backend *Backend) {
 			for {
 				conn, err := net.DialTimeout("tcp", backend.URL.Host, 2*time.Second)
 				if err != nil {
 					backend.SetHealthy(false)
-					s.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
-					s.log.Printf("backend %s is down", backend.URL.Host)
+					p.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
+					p.log.Printf("backend %s is down", backend.URL.Host)
 				} else {
 					backend.SetHealthy(true)
 					conn.Close()
 				}
-				time.Sleep(10 * time.Second) // Check every 10 seconds
+				time.Sleep(p.healthcheckInterval) // Check every 10 seconds
 			}
 		}(b)
 	}

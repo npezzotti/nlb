@@ -12,14 +12,16 @@ import (
 
 type UDPServerPool struct {
 	BaseServerPool
-	conn     *net.UDPConn
-	wg       sync.WaitGroup
-	shutdown chan struct{}
+	conn                *net.UDPConn
+	wg                  sync.WaitGroup
+	shutdown            chan struct{}
+	healthcheckInterval time.Duration
 }
 
 func NewUDPServerPool(l *log.Logger, config *Config) *UDPServerPool {
 	pool := &UDPServerPool{
-		shutdown: make(chan struct{}),
+		shutdown:            make(chan struct{}),
+		healthcheckInterval: 10 * time.Second,
 		BaseServerPool: BaseServerPool{
 			stickySessions: config.StickySessions,
 			log:            l,
@@ -46,56 +48,56 @@ func (p *UDPServerPool) HealthCheck() {
 					backend.SetHealthy(true)
 					conn.Close()
 				}
-				time.Sleep(10 * time.Second) // Check every 10 seconds
+				time.Sleep(p.healthcheckInterval) // Check every 10 seconds
 			}
 		}(b)
 	}
 }
 
-func (u *UDPServerPool) AddBackend(rawUrl string) {
-	u.backendsMutex.Lock()
-	defer u.backendsMutex.Unlock()
+func (p *UDPServerPool) AddBackend(rawUrl string) {
+	p.backendsMutex.Lock()
+	defer p.backendsMutex.Unlock()
 	parsedURL, err := url.Parse(rawUrl)
 	if err != nil {
-		u.log.Printf("error parsing URL %s: %v\n", rawUrl, err)
+		p.log.Printf("error parsing URL %s: %v\n", rawUrl, err)
 		return
 	}
 	backend := &Backend{
 		URL:       parsedURL,
 		isHealthy: true,
 	}
-	u.backends = append(u.backends, backend)
+	p.backends = append(p.backends, backend)
 }
 
-func (u *UDPServerPool) Start() error {
+func (p *UDPServerPool) Start() error {
 	var err error
-	u.conn, err = net.ListenUDP("udp", &net.UDPAddr{
+	p.conn, err = net.ListenUDP("udp", &net.UDPAddr{
 		Port: 9090,
 	})
 	if err != nil {
 		return fmt.Errorf("error starting udp server: %w", err)
 	}
-	u.log.Printf("UDP server started on %s", u.conn.LocalAddr().String())
+	p.log.Printf("UDP server started on %s", p.conn.LocalAddr().String())
 
-	u.wg.Add(1)
-	go u.acceptUDPConnections()
+	p.wg.Add(1)
+	go p.acceptUDPConnections()
 	return nil
 }
 
-func (u *UDPServerPool) Shutdown(ctx context.Context) error {
+func (p *UDPServerPool) Shutdown(ctx context.Context) error {
 	start := time.Now()
 
 	select {
-	case <-u.shutdown:
+	case <-p.shutdown:
 		// Already closed
 		return nil
 	default:
-		close(u.shutdown)
+		close(p.shutdown)
 	}
 
 	var err error
-	if u.conn != nil {
-		err = u.conn.Close()
+	if p.conn != nil {
+		err = p.conn.Close()
 	}
 	if err != nil {
 		return fmt.Errorf("error closing UDP connection: %w", err)
@@ -103,7 +105,7 @@ func (u *UDPServerPool) Shutdown(ctx context.Context) error {
 
 	done := make(chan struct{})
 	go func() {
-		u.wg.Wait()
+		p.wg.Wait()
 		close(done)
 	}()
 
@@ -115,51 +117,51 @@ func (u *UDPServerPool) Shutdown(ctx context.Context) error {
 	}
 
 	elapsed := time.Since(start)
-	u.log.Printf("server pool shutdown completed in %s", elapsed)
+	p.log.Printf("server pool shutdown completed in %s", elapsed)
 	return nil
 }
 
-func (u *UDPServerPool) acceptUDPConnections() {
-	defer u.wg.Done()
+func (p *UDPServerPool) acceptUDPConnections() {
+	defer p.wg.Done()
 
 	buf := make([]byte, 65507) // Max UDP payload size
 	for {
 		select {
-		case <-u.shutdown:
+		case <-p.shutdown:
 			return
 		default:
-			n, addr, err := u.conn.ReadFromUDP(buf)
+			n, addr, err := p.conn.ReadFromUDP(buf)
 			if err != nil {
 				select {
-				case <-u.shutdown:
+				case <-p.shutdown:
 					return // Shutdown signal received
 				default:
-					u.log.Printf("error accepting connection: %v\n", err)
+					p.log.Printf("error accepting connection: %v\n", err)
 					continue
 				}
 			}
-			go u.handleConnection(addr, buf[:n])
+			go p.handleConnection(addr, buf[:n])
 		}
 	}
 }
 
-func (u *UDPServerPool) handleConnection(clientAddr *net.UDPAddr, data []byte) {
-	backend := u.Next(clientAddr)
+func (p *UDPServerPool) handleConnection(clientAddr *net.UDPAddr, data []byte) {
+	backend := p.Next(clientAddr)
 	if backend == nil {
-		u.log.Printf("No healthy backend available")
+		p.log.Printf("No healthy backend available")
 		return
 	}
-	resp, err := u.forwardToBackend(backend, data)
+	resp, err := p.forwardToBackend(backend, data)
 	if err != nil {
-		u.log.Printf("Error forwarding to backend: %v", err)
+		p.log.Printf("Error forwarding to backend: %v", err)
 		return
 	}
-	if _, err := u.conn.WriteToUDP(resp, clientAddr); err != nil {
-		u.log.Printf("Error writing response to client: %v", err)
+	if _, err := p.conn.WriteToUDP(resp, clientAddr); err != nil {
+		p.log.Printf("Error writing response to client: %v", err)
 	}
 }
 
-func (u *UDPServerPool) forwardToBackend(backend *Backend, data []byte) ([]byte, error) {
+func (p *UDPServerPool) forwardToBackend(backend *Backend, data []byte) ([]byte, error) {
 	remoteAddr, err := net.ResolveUDPAddr("udp", backend.URL.Host)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving backend address %s: %w", backend.URL.Host, err)
