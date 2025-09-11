@@ -27,18 +27,18 @@ func run(args []string) error {
 	}
 
 	l := log.New(os.Stdout, "nlb: ", log.LstdFlags)
-	
+
 	var pool ServerPool
 	switch config.Protocol {
 	case "tcp":
 		pool, err = NewTCPServerPool(l, config)
-		if err != nil {
-			return fmt.Errorf("failed to create server pool: %v", err)
-		}
 	case "udp":
-		pool = NewUDPServerPool(l, config)
+		pool, err = NewUDPServerPool(l, config)
 	default:
 		return fmt.Errorf("unsupported protocol: %s", config.Protocol)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create server pool: %v", err)
 	}
 
 	if len(args) < 1 {

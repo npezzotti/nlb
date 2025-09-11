@@ -32,6 +32,9 @@ func Test_loadConfig(t *testing.T) {
 	if !cfg.StickySessions {
 		t.Errorf("Expected StickySessions to be true, got %v", cfg.StickySessions)
 	}
+	if cfg.HealthcheckInterval != "10s" {
+		t.Errorf("Expected healthcheckInterval to be 10s, got %v", cfg.HealthcheckInterval)
+	}
 	if cfg.TLSCertPath != "test_cert.pem" {
 		t.Errorf("Expected TLSCertPath to be 'test_cert.pem', got %s", cfg.TLSCertPath)
 	}

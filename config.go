@@ -7,12 +7,13 @@ import (
 )
 
 type Config struct {
-	Addr           string   `json:"addr"`
-	Protocol       string   `json:"protocol"`
-	Backends       []string `json:"backends"`
-	StickySessions bool     `json:"sticky_sessions"`
-	TLSCertPath    string   `json:"tls_cert_path"`
-	TLSKeyPath     string   `json:"tls_key_path"`
+	Addr                string   `json:"addr"`
+	Protocol            string   `json:"protocol"`
+	Backends            []string `json:"backends"`
+	StickySessions      bool     `json:"sticky_sessions"`
+	TLSCertPath         string   `json:"tls_cert_path"`
+	TLSKeyPath          string   `json:"tls_key_path"`
+	HealthcheckInterval string   `json:"healthcheck_interval"`
 }
 
 func loadConfig(filePath string) (*Config, error) {

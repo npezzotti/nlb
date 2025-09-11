@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/url"
 	"sync"
 	"time"
 )
@@ -16,12 +15,23 @@ type UDPServerPool struct {
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 	healthcheckInterval time.Duration
+	addr                string
 }
 
-func NewUDPServerPool(l *log.Logger, config *Config) *UDPServerPool {
+func NewUDPServerPool(l *log.Logger, config *Config) (*UDPServerPool, error) {
+	if config.HealthcheckInterval == "" {
+		config.HealthcheckInterval = "10s" // Default to 10 seconds if not set
+	}
+
+	healthcheckInterval, err := time.ParseDuration(config.HealthcheckInterval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid healthcheck interval: %w", err)
+	}
+
 	pool := &UDPServerPool{
 		shutdown:            make(chan struct{}),
-		healthcheckInterval: 10 * time.Second,
+		addr:                config.Addr,
+		healthcheckInterval: healthcheckInterval,
 		BaseServerPool: BaseServerPool{
 			stickySessions: config.StickySessions,
 			log:            l,
@@ -32,41 +42,56 @@ func NewUDPServerPool(l *log.Logger, config *Config) *UDPServerPool {
 	for _, backend := range config.Backends {
 		pool.AddBackend(backend)
 	}
-	return pool
+	return pool, nil
 }
 
 func (p *UDPServerPool) HealthCheck() {
 	for _, b := range p.backends {
 		go func(backend *Backend) {
 			for {
-				conn, err := net.DialTimeout("udp", backend.URL.Host, 2*time.Second)
+				addr, err := net.ResolveUDPAddr("udp", backend.URL.Host)
+				if err != nil {
+					p.log.Printf("error resolving backend address %s: %v", backend.URL.Host, err)
+					backend.SetHealthy(false)
+					time.Sleep(p.healthcheckInterval)
+					continue
+				}
+				conn, err := net.DialUDP("udp", nil, addr)
 				if err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
 					p.log.Printf("backend %s is down", backend.URL.Host)
+				}
+
+				// Send health check ping
+				conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+				if _, err := conn.Write([]byte("ping")); err != nil {
+					backend.SetHealthy(false)
+					p.log.Printf("error writing to backend %s: %v", backend.URL.Host, err)
+					p.log.Printf("backend %s is down", backend.URL.Host)
 				} else {
 					backend.SetHealthy(true)
-					conn.Close()
 				}
-				time.Sleep(p.healthcheckInterval) // Check every 10 seconds
+
+				buf := make([]byte, 1024)
+				conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+				n, backendAddr, err := conn.ReadFrom(buf)
+				if err != nil {
+					backend.SetHealthy(false)
+					p.log.Printf("error reading from backend %s: %v", backend.URL.Host, err)
+				} else {
+					if backendAddr.String() == backend.URL.Host && string(buf[:n]) == "pong" {
+						backend.SetHealthy(true)
+					} else {
+						backend.SetHealthy(false)
+						p.log.Printf("unexpected response from backend %s: %s", backend.URL.Host, string(buf[:n]))
+					}
+				}
+				conn.Close()
+				time.Sleep(p.healthcheckInterval)
 			}
 		}(b)
 	}
-}
-
-func (p *UDPServerPool) AddBackend(rawUrl string) {
-	p.backendsMutex.Lock()
-	defer p.backendsMutex.Unlock()
-	parsedURL, err := url.Parse(rawUrl)
-	if err != nil {
-		p.log.Printf("error parsing URL %s: %v\n", rawUrl, err)
-		return
-	}
-	backend := &Backend{
-		URL:       parsedURL,
-		isHealthy: true,
-	}
-	p.backends = append(p.backends, backend)
 }
 
 func (p *UDPServerPool) Start() error {

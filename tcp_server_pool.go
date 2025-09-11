@@ -40,6 +40,15 @@ func NewTCPServerPool(l *log.Logger, config *Config) (*TCPServerPool, error) {
 		}
 	}
 
+	if config.HealthcheckInterval == "" {
+		config.HealthcheckInterval = "10s"
+	}
+
+	healthcheckInterval, err := time.ParseDuration(config.HealthcheckInterval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid healthcheck interval: %w", err)
+	}
+
 	pool := &TCPServerPool{
 		listener: listener,
 		shutdown: make(chan struct{}),
@@ -47,7 +56,7 @@ func NewTCPServerPool(l *log.Logger, config *Config) (*TCPServerPool, error) {
 			stickySessions: config.StickySessions,
 			log:            l,
 		},
-		healthcheckInterval: 10 * time.Second,
+		healthcheckInterval: healthcheckInterval,
 	}
 
 	// Add backends from config
@@ -168,7 +177,7 @@ func (p *TCPServerPool) HealthCheck() {
 					backend.SetHealthy(true)
 					conn.Close()
 				}
-				time.Sleep(p.healthcheckInterval) // Check every 10 seconds
+				time.Sleep(p.healthcheckInterval)
 			}
 		}(b)
 	}
