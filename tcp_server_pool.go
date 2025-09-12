@@ -177,15 +177,14 @@ func (p *TCPServerPool) HealthCheck() {
 					backend.SetHealthy(true)
 					conn.Close()
 				}
-				time.Sleep(p.healthcheckInterval)
+
+				select {
+				case <-time.After(p.healthcheckInterval):
+				case <-p.shutdown:
+					return
+				}
 			}
 		}(b)
-
-		select {
-		case <-time.After(p.healthcheckInterval):
-		case <-p.shutdown:
-			return
-		}
 	}
 }
 
