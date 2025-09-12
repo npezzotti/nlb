@@ -14,7 +14,7 @@ import (
 type ServerPool interface {
 	Next(conn net.Addr) *Backend
 	AddBackend(rawUrl string)
-	HealthCheck()
+	StartHealthChecks()
 	Start() error
 	Shutdown(ctx context.Context) error
 	dashboardHandler(w http.ResponseWriter, r *http.Request)

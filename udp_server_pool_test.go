@@ -219,7 +219,7 @@ func TestUDPServerPoolHealthCheck(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond) // Allow the backend time to start
 
-	pool.HealthCheck()
+	pool.StartHealthChecks()
 
 	time.Sleep(100 * time.Millisecond) // Wait for health checks to run
 

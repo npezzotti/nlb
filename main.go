@@ -45,7 +45,7 @@ func run(args []string) error {
 		return fmt.Errorf("please provide path to config file as first argument")
 	}
 
-	pool.HealthCheck()
+	pool.StartHealthChecks()
 	pool.Start()
 
 	// Setup HTTP handlers for the dashboard

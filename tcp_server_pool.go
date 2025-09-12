@@ -163,8 +163,8 @@ func (p *TCPServerPool) Next(conn net.Addr) *Backend {
 	return nil
 }
 
-// HealthCheck pings a backend to see if it's alive.
-func (p *TCPServerPool) HealthCheck() {
+// StartHealthChecks pings a backend to see if it's alive.
+func (p *TCPServerPool) StartHealthChecks() {
 	for _, b := range p.backends {
 		go func(backend *Backend) {
 			for {
