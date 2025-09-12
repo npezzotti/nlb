@@ -63,14 +63,14 @@ func (p *UDPServerPool) StartHealthChecks() {
 				if err != nil {
 					p.log.Printf("error resolving backend address %s: %v", backend.URL.Host, err)
 					backend.SetHealthy(false)
-					backend.SetError(err)
+					backend.Error = err
 					continue
 				}
 				conn, err := net.DialUDP("udp", nil, addr)
 				if err != nil {
 					p.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
 					backend.SetHealthy(false)
-					backend.SetError(err)
+					backend.Error = err
 					continue
 				}
 
@@ -79,7 +79,7 @@ func (p *UDPServerPool) StartHealthChecks() {
 				if _, err := conn.Write([]byte("ping")); err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error writing to backend %s: %v", backend.URL.Host, err)
-					backend.SetError(err)
+					backend.Error = err
 					continue
 				}
 
@@ -89,15 +89,15 @@ func (p *UDPServerPool) StartHealthChecks() {
 				if err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error reading from backend %s: %v", backend.URL.Host, err)
-					backend.SetError(err)
+					backend.Error = err
 				} else {
 					if string(buf[:n]) == "pong" {
 						backend.SetHealthy(true)
-						backend.SetError(nil)
+						backend.Error = nil
 					} else {
 						backend.SetHealthy(false)
 						p.log.Printf("unexpected response from backend %s: %s", backendAddr.String(), string(buf[:n]))
-						backend.SetError(fmt.Errorf("unexpected response from backend %s: %s", backendAddr.String(), string(buf[:n])))
+						backend.Error = fmt.Errorf("unexpected response from backend %s: %s", backendAddr.String(), string(buf[:n]))
 					}
 				}
 				conn.Close()

@@ -10,7 +10,7 @@ type Backend struct {
 	URL       *url.URL
 	mux       sync.Mutex
 	isHealthy bool
-	err       error
+	Error     error
 }
 
 // Healthy checks the status of the backend.
@@ -25,12 +25,4 @@ func (b *Backend) SetHealthy(healthy bool) {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	b.isHealthy = healthy
-}
-
-func (b *Backend) SetError(err error) {
-	b.err = err
-}
-
-func (b *Backend) Error() error {
-	return b.err
 }
