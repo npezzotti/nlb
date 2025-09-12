@@ -222,7 +222,7 @@ func TestHealthCheck(t *testing.T) {
 		defer conn.Close()
 	}()
 
-	pool.HealthCheck()
+	pool.StartHealthChecks()
 
 	time.Sleep(100 * time.Millisecond) // Wait for health checks to run
 

@@ -45,7 +45,7 @@ func NewUDPServerPool(l *log.Logger, config *Config) (*UDPServerPool, error) {
 	return pool, nil
 }
 
-func (p *UDPServerPool) HealthCheck() {
+func (p *UDPServerPool) StartHealthChecks() {
 	for _, b := range p.backends {
 		go func(backend *Backend) {
 			for {
