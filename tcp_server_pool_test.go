@@ -29,13 +29,13 @@ func Test_proxy(t *testing.T) {
 
 			conn, err := ln.Accept()
 			if err != nil {
+				t.Errorf("failed to accept connection on %s: %v", addr, err)
 				return
 			}
 			defer conn.Close()
 			_, err = io.Copy(conn, bytes.NewBufferString("Hello from "+addr+"!\n"))
 			if err != nil {
-				t.Logf("Error writing to connection: %v", err)
-				return
+				t.Errorf("Error writing to connection: %v", err)
 			}
 		}(addr)
 	}
