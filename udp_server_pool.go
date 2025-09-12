@@ -48,19 +48,30 @@ func NewUDPServerPool(l *log.Logger, config *Config) (*UDPServerPool, error) {
 func (p *UDPServerPool) StartHealthChecks() {
 	for _, b := range p.backends {
 		go func(backend *Backend) {
+			first := true
 			for {
+				if !first {
+					select {
+					case <-time.After(p.healthcheckInterval):
+					case <-p.shutdown:
+						return
+					}
+				}
+				first = false
+
 				addr, err := net.ResolveUDPAddr("udp", backend.URL.Host)
 				if err != nil {
 					p.log.Printf("error resolving backend address %s: %v", backend.URL.Host, err)
 					backend.SetHealthy(false)
-					time.Sleep(p.healthcheckInterval)
+					backend.SetError(err)
 					continue
 				}
 				conn, err := net.DialUDP("udp", nil, addr)
 				if err != nil {
-					backend.SetHealthy(false)
 					p.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
-					p.log.Printf("backend %s is down", backend.URL.Host)
+					backend.SetHealthy(false)
+					backend.SetError(err)
+					continue
 				}
 
 				// Send health check ping
@@ -68,9 +79,8 @@ func (p *UDPServerPool) StartHealthChecks() {
 				if _, err := conn.Write([]byte("ping")); err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error writing to backend %s: %v", backend.URL.Host, err)
-					p.log.Printf("backend %s is down", backend.URL.Host)
-				} else {
-					backend.SetHealthy(true)
+					backend.SetError(err)
+					continue
 				}
 
 				buf := make([]byte, 1024)
@@ -79,21 +89,18 @@ func (p *UDPServerPool) StartHealthChecks() {
 				if err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error reading from backend %s: %v", backend.URL.Host, err)
+					backend.SetError(err)
 				} else {
-					if backendAddr.String() == backend.URL.Host && string(buf[:n]) == "pong" {
+					if string(buf[:n]) == "pong" {
 						backend.SetHealthy(true)
+						backend.SetError(nil)
 					} else {
 						backend.SetHealthy(false)
-						p.log.Printf("unexpected response from backend %s: %s", backend.URL.Host, string(buf[:n]))
+						p.log.Printf("unexpected response from backend %s: %s", backendAddr.String(), string(buf[:n]))
+						backend.SetError(fmt.Errorf("unexpected response from backend %s: %s", backendAddr.String(), string(buf[:n])))
 					}
 				}
 				conn.Close()
-
-				select {
-				case <-time.After(p.healthcheckInterval):
-				case <-p.shutdown:
-					return
-				}
 			}
 		}(b)
 	}

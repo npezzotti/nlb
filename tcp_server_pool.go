@@ -172,9 +172,10 @@ func (p *TCPServerPool) StartHealthChecks() {
 				if err != nil {
 					backend.SetHealthy(false)
 					p.log.Printf("error connecting to backend %s: %v", backend.URL.Host, err)
-					p.log.Printf("backend %s is down", backend.URL.Host)
+					backend.SetError(err)
 				} else {
 					backend.SetHealthy(true)
+					backend.SetError(nil)
 					conn.Close()
 				}
 
