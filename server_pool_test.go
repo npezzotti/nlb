@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -120,5 +125,48 @@ func Test_findNextHealthyBackend(t *testing.T) {
 	backend := pool.findNextHealthyBackend(0) // Start from index 0
 	if backend == nil || backend != pool.backends[2] {
 		t.Errorf("expected backend %q, got %v", pool.backends[2].URL.String(), backend)
+	}
+}
+
+func Test_dashboardHandler_backendStatusColumns(t *testing.T) {
+	pool := &BaseServerPool{}
+	backend1 := "http://localhost:8080"
+	backend2 := "http://localhost:8081"
+	pool.AddBackend(backend1)
+	pool.AddBackend(backend2)
+
+	pool.backends[0].SetHealthy(true)
+	pool.backends[1].SetHealthy(false)
+	srv := httptest.NewServer(http.HandlerFunc(pool.dashboardHandler))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("failed to get dashboard: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+	buf := make([]byte, 4096)
+	n, err := resp.Body.Read(buf)
+	if err != nil && err.Error() != "EOF" {
+		t.Errorf("failed to read response body: %v", err)
+	}
+
+	body := string(buf[:n])
+	backend1Status := fmt.Sprintf("<td class=\"server-name\">%s</td>\n"+
+		"            <td><span class=\"status up\"><span class=\"status-indicator\"></span>UP</span></td>", backend1)
+	if !strings.Contains(body, backend1Status) {
+		t.Errorf("expected html to contain %q, got %q", backend1Status, body)
+	}
+	backend2Status := fmt.Sprintf("<td class=\"server-name\">%s</td>\n"+
+		"            <td><span class=\"status down\"><span class=\"status-indicator\"></span>DOWN</span></td>", backend2)
+	if !strings.Contains(body, backend2Status) {
+		t.Errorf("expected html to contain %q, got %q", backend2Status, body)
+	}
+	if !regexp.MustCompile(`Last updated: [A-Za-z]+ \d{1,2}, \d{4} at \d{1,2}:\d{2}:\d{2} [AP]M [A-Z]{3}`).MatchString(body) {
+		t.Errorf("expected html to contain timestamp of last update, got %q", body)
 	}
 }
