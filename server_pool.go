@@ -21,9 +21,9 @@ type ServerPool interface {
 }
 
 var (
-	tmpl = template.Must(template.New("index.html.tmpl").
+	tmpl = template.Must(template.New("dashboard.html.tmpl").
 		Funcs(template.FuncMap{"now": time.Now}).
-		ParseFiles("static/index.html.tmpl"))
+		ParseFiles("templates/dashboard.html.tmpl"))
 )
 
 type BaseServerPool struct {
