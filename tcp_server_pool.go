@@ -180,6 +180,12 @@ func (p *TCPServerPool) HealthCheck() {
 				time.Sleep(p.healthcheckInterval)
 			}
 		}(b)
+
+		select {
+		case <-time.After(p.healthcheckInterval):
+		case <-p.shutdown:
+			return
+		}
 	}
 }
 

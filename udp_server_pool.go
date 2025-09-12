@@ -88,7 +88,12 @@ func (p *UDPServerPool) HealthCheck() {
 					}
 				}
 				conn.Close()
-				time.Sleep(p.healthcheckInterval)
+
+				select {
+				case <-time.After(p.healthcheckInterval):
+				case <-p.shutdown:
+					return
+				}
 			}
 		}(b)
 	}
