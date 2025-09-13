@@ -1,0 +1,11 @@
+{
+  "addr": ":9090",
+  "console_addr": ":8080",
+  "protocol": "udp",
+  "backends": [
+    "http://localhost:8000",
+    "http://localhost:8001"
+  ],
+  "sticky_sessions": false,
+  "healthcheck_interval": "10s"
+}
