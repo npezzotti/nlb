@@ -20,6 +20,7 @@ func run(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("please provide the path to the config file as the first argument")
 	}
+
 	var err error
 	config, err := loadConfig(args[0])
 	if err != nil {
@@ -41,10 +42,6 @@ func run(args []string) error {
 		return fmt.Errorf("failed to create server pool: %v", err)
 	}
 
-	if len(args) < 1 {
-		return fmt.Errorf("please provide path to config file as first argument")
-	}
-
 	pool.StartHealthChecks()
 	pool.Start()
 
@@ -58,6 +55,8 @@ func run(args []string) error {
 	go func() {
 		httpErrChan <- srv.ListenAndServe()
 	}()
+
+	l.Printf("dashboard available at %s", srv.Addr)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

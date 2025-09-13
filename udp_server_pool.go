@@ -114,7 +114,7 @@ func (p *UDPServerPool) Start() error {
 	if err != nil {
 		return fmt.Errorf("error starting udp server: %w", err)
 	}
-	p.log.Printf("UDP server started on %s", p.conn.LocalAddr().String())
+	p.log.Printf("udp server started on %s", p.conn.LocalAddr().String())
 
 	p.wg.Add(1)
 	go p.acceptUDPConnections()
