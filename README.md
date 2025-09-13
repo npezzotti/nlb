@@ -16,7 +16,7 @@
 
 - Go 1.24.4 or higher
 
-### Installation
+### Getting Started
 
 ```bash
 git clone https://github.com/npezzotti/nlb.git
@@ -30,5 +30,5 @@ make run
 ./nlb <path_to_config_file>
 ```
 
-See the `examples/` directory for a sample configuration files.
+See the `examples/` directory for a sample configuration file.
 
