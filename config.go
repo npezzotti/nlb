@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	Addr                string   `json:"addr"`
+	ConsoleAddr         string   `json:"console_addr"`
 	Protocol            string   `json:"protocol"`
 	Backends            []string `json:"backends"`
 	StickySessions      bool     `json:"sticky_sessions"`

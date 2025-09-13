@@ -52,7 +52,7 @@ func run(args []string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.HandleFunc("/", pool.dashboardHandler)
-	srv := &http.Server{Addr: ":6060", Handler: mux}
+	srv := &http.Server{Addr: config.ConsoleAddr, Handler: mux}
 
 	httpErrChan := make(chan error, 1)
 	go func() {
