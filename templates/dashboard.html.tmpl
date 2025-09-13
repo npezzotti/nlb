@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>NLB Dashboard</title>
+  <title>Load Balancer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -25,7 +25,7 @@
           <tr>
             <td class="server-name">{{ .URL }}</td>
             <td><span class="status {{ if .Healthy }}up{{ else }}down{{ end }}"><span class="status-indicator"></span>{{ if .Healthy }}UP{{ else }}DOWN{{ end }}</span></td>
-            <td><span class="load">{{ .Error }}</span></td>
+            <td>{{ if .Error }}<span class="error">{{ .Error }}</span>{{ end }}</td>
           </tr>
         {{ end }}
       </tbody>
